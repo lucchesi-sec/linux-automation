@@ -1,0 +1,73 @@
+{
+  "email": {
+    "smtp_server": "localhost",
+    "smtp_port": "25",
+    "from_address": "bash-admin@example.com",
+    "recipients": {
+      "admin": "admin@example.com",
+      "security": "security@example.com",
+      "operations": "ops@example.com",
+      "management": "mgmt@example.com"
+    }
+  },
+  "paths": {
+    "log_dir": "/var/log/bash-admin",
+    "report_dir": "/var/reports/bash-admin",
+    "backup_dir": "/var/backups/bash-admin",
+    "temp_dir": "/tmp/bash-admin"
+  },
+  "notifications": {
+    "enabled": true,
+    "email_enabled": true,
+    "levels": {
+      "critical": ["security", "admin"],
+      "error": ["admin"],
+      "warning": ["admin"],
+      "info": ["operations"]
+    }
+  },
+  "backup": {
+    "retention_days": 30,
+    "compression": "gzip",
+    "include_system_state": true,
+    "destinations": [
+      {
+        "type": "local",
+        "path": "/var/backups/bash-admin"
+      }
+    ]
+  },
+  "monitoring": {
+    "disk_threshold": 90,
+    "memory_threshold": 85,
+    "load_threshold": 5.0,
+    "service_check_interval": 300,
+    "log_rotation_days": 7
+  },
+  "security": {
+    "audit_enabled": true,
+    "log_commands": true,
+    "restrict_execution": false,
+    "allowed_users": [],
+    "required_privileges": "sudo"
+  },
+  "maintenance": {
+    "auto_update": false,
+    "maintenance_window": {
+      "day": "Sunday",
+      "hour": 3,
+      "duration": 4
+    },
+    "services_to_monitor": [
+      "sshd",
+      "systemd-resolved",
+      "cron"
+    ]
+  },
+  "reporting": {
+    "formats": ["html", "json"],
+    "auto_email": true,
+    "include_metrics": true,
+    "retention_days": 90
+  }
+}

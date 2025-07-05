@@ -1,0 +1,257 @@
+{
+  "system": {
+    "hostname": "auto-detect",
+    "timezone": "UTC",
+    "environment": "production",
+    "data_directory": "/var/log/bash-admin",
+    "temp_directory": "/tmp/bash-admin",
+    "lock_directory": "/var/run/bash-admin"
+  },
+  "logging": {
+    "level": "INFO",
+    "retention_days": 30,
+    "max_size_mb": 100,
+    "compress_after_days": 7,
+    "destinations": ["file", "syslog"],
+    "file_path": "/var/log/bash-admin/system.log",
+    "syslog_facility": "local0",
+    "include_timestamps": true,
+    "include_hostname": true,
+    "color_output": true
+  },
+  "notifications": {
+    "enabled": true,
+    "default_priority": "normal",
+    "rate_limiting": {
+      "enabled": true,
+      "max_per_hour": 10
+    },
+    "smtp": {
+      "server": "localhost",
+      "port": 25,
+      "security": "none",
+      "auth": {
+        "enabled": false,
+        "username": "",
+        "password": ""
+      },
+      "timeout": 30,
+      "from_address": "bash-admin@localhost",
+      "from_name": "Linux Automation System"
+    },
+    "recipients": {
+      "admin": "admin@example.com",
+      "security": "security@example.com",
+      "backup": "backup@example.com",
+      "operations": "ops@example.com"
+    },
+    "templates": {
+      "daily_summary": {
+        "subject": "Daily Administration Summary - {{hostname}}",
+        "priority": "normal"
+      },
+      "security_alert": {
+        "subject": "🔴 Security Alert - {{hostname}}",
+        "priority": "high"
+      },
+      "backup_failure": {
+        "subject": "⚠️ Backup Failure - {{hostname}}",
+        "priority": "high"
+      }
+    }
+  },
+  "modules": {
+    "user_management": {
+      "enabled": true,
+      "check_frequency": "daily",
+      "failed_login_threshold": 10,
+      "inactive_user_days": 90,
+      "password_policy": {
+        "min_length": 8,
+        "require_complexity": true,
+        "max_age_days": 90
+      },
+      "excluded_users": ["root", "daemon", "bin", "sys", "nobody", "systemd-network", "systemd-resolve"],
+      "report_empty_passwords": true,
+      "report_duplicate_uids": true,
+      "cleanup_inactive_users": false
+    },
+    "backup_monitor": {
+      "enabled": true,
+      "check_frequency": "daily",
+      "backup_paths": [
+        "/backup/daily",
+        "/backup/weekly",
+        "/mnt/backup"
+      ],
+      "retention_days": 30,
+      "verification_enabled": true,
+      "integrity_checks": {
+        "checksum_validation": true,
+        "restore_testing": false,
+        "size_validation": true
+      },
+      "storage_thresholds": {
+        "warning_percent": 80,
+        "critical_percent": 90
+      },
+      "notification_on_failure": true,
+      "backup_jobs": {
+        "system_config": {
+          "path": "/etc",
+          "schedule": "daily",
+          "retention": "30d",
+          "enabled": true
+        },
+        "user_data": {
+          "path": "/home",
+          "schedule": "daily",
+          "retention": "30d",
+          "enabled": true
+        },
+        "logs": {
+          "path": "/var/log",
+          "schedule": "daily",
+          "retention": "7d",
+          "enabled": false
+        }
+      }
+    },
+    "security_audit": {
+      "enabled": true,
+      "check_frequency": "daily",
+      "compliance_frameworks": ["cis", "nist"],
+      "vulnerability_scanning": {
+        "enabled": true,
+        "update_sources": true,
+        "severity_threshold": "medium"
+      },
+      "file_permissions": {
+        "check_world_writable": true,
+        "check_suid_sgid": true,
+        "critical_files": [
+          "/etc/passwd",
+          "/etc/shadow",
+          "/etc/sudoers",
+          "/etc/ssh/sshd_config"
+        ]
+      },
+      "network_security": {
+        "check_open_ports": true,
+        "allowed_services": ["ssh", "http", "https"],
+        "firewall_validation": true
+      },
+      "process_monitoring": {
+        "check_suspicious_processes": true,
+        "root_process_threshold": 100,
+        "unknown_process_alert": true
+      },
+      "security_services": {
+        "required": ["ssh"],
+        "recommended": ["ufw", "fail2ban", "clamav-daemon"]
+      },
+      "thresholds": {
+        "failed_login_limit": 10,
+        "security_score_minimum": 70
+      }
+    },
+    "log_management": {
+      "enabled": true,
+      "analysis_frequency": "daily",
+      "rotation_enabled": true,
+      "retention_days": 30,
+      "compression": {
+        "enabled": true,
+        "after_days": 7,
+        "algorithm": "gzip"
+      },
+      "analysis": {
+        "error_patterns": [
+          "ERROR",
+          "CRITICAL",
+          "FATAL",
+          "panic",
+          "segfault",
+          "out of memory",
+          "disk full"
+        ],
+        "warning_patterns": [
+          "WARNING",
+          "WARN",
+          "deprecated"
+        ],
+        "security_patterns": [
+          "Failed password",
+          "Invalid user",
+          "authentication failure",
+          "sudo:",
+          "su:"
+        ]
+      },
+      "log_sources": {
+        "system": [
+          "/var/log/syslog",
+          "/var/log/messages",
+          "/var/log/auth.log",
+          "/var/log/secure",
+          "/var/log/kern.log",
+          "/var/log/daemon.log"
+        ],
+        "applications": [
+          "/var/log/apache2/*.log",
+          "/var/log/nginx/*.log",
+          "/var/log/mysql/*.log",
+          "/var/log/postgresql/*.log"
+        ]
+      },
+      "thresholds": {
+        "error_count_daily": 50,
+        "warning_count_daily": 100,
+        "file_size_warning_mb": 100,
+        "file_size_critical_mb": 500
+      }
+    }
+  },
+  "scheduling": {
+    "daily_suite": {
+      "enabled": true,
+      "time": "06:00",
+      "timeout_minutes": 30
+    },
+    "security_audit": {
+      "enabled": true,
+      "frequency": "twice_daily",
+      "times": ["06:00", "18:00"]
+    },
+    "log_maintenance": {
+      "enabled": true,
+      "time": "00:00",
+      "frequency": "daily"
+    }
+  },
+  "performance": {
+    "max_concurrent_jobs": 4,
+    "job_timeout_minutes": 30,
+    "memory_limit_mb": 512,
+    "temp_file_cleanup": true,
+    "cache_enabled": true,
+    "cache_ttl_minutes": 60,
+    "parallel_processing": {
+      "enabled": true,
+      "max_workers": 4
+    }
+  },
+  "security": {
+    "privilege_escalation": "sudo",
+    "file_permissions": {
+      "config_files": "600",
+      "log_files": "640",
+      "script_files": "755"
+    },
+    "secure_temp_files": true,
+    "audit_commands": true,
+    "encrypt_sensitive_data": false,
+    "allowed_users": ["root"],
+    "allowed_groups": ["wheel", "sudo", "admin"]
+  }
+}
