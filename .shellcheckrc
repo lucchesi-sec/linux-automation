@@ -1,0 +1,37 @@
+# ShellCheck configuration for Linux Automation System
+# See: https://github.com/koalaman/shellcheck/blob/master/shellcheck.1.md
+
+# Enable all checks by default
+enable=all
+
+# Disable specific checks that are not relevant for this project
+
+# SC1091: Not following sourced files - we have complex sourcing patterns
+disable=SC1091
+
+# SC2034: Variable appears unused - many variables are used in sourced contexts
+disable=SC2034
+
+# SC2154: Variable is referenced but not assigned - common in configuration loading
+disable=SC2154
+
+# SC2086: Double quote to prevent globbing - acceptable in some contexts
+# Keeping this enabled as it's important for security
+
+# SC2230: Use which(1) or command -v instead of which - we handle this properly
+disable=SC2230
+
+# Format output
+format=tty
+
+# External sources - add directories where we source common libraries
+external-sources=true
+
+# Specify shell dialect (bash)
+shell=bash
+
+# Severity level
+severity=style
+
+# Follow sourced files (disabled due to complex sourcing patterns)
+source-path=SCRIPTDIR

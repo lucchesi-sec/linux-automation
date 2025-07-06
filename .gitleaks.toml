@@ -1,0 +1,90 @@
+# GitLeaks configuration for Linux Automation System
+# This configuration defines rules for detecting secrets in the repository
+
+title = "Linux Automation System - Secret Detection"
+
+[extend]
+# Use default rules as baseline
+useDefault = true
+
+[[rules]]
+id = "bash-admin-config-secrets"
+description = "Bash Admin configuration files with potential secrets"
+regex = '''(?i)(password|secret|key|token|credential)\s*[:=]\s*["']?[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{8,}["']?'''
+path = '''config/.*\.(json|conf|cfg)$'''
+tags = ["config", "secret"]
+
+[[rules]]
+id = "ssh-private-keys"
+description = "SSH private keys"
+regex = '''-----BEGIN [A-Z]+ PRIVATE KEY-----'''
+tags = ["ssh", "private-key", "secret"]
+
+[[rules]]
+id = "database-connection-strings"
+description = "Database connection strings"
+regex = '''(?i)(mysql|postgres|mongodb|redis)://[a-zA-Z0-9_\-]+:[a-zA-Z0-9_\-]+@'''
+tags = ["database", "connection-string", "secret"]
+
+[[rules]]
+id = "api-keys-generic"
+description = "Generic API keys"
+regex = '''(?i)(api[_\-]?key|apikey|auth[_\-]?token)\s*[:=]\s*["']?[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{16,}["']?'''
+tags = ["api-key", "secret"]
+
+[[rules]]
+id = "hardcoded-passwords"
+description = "Hardcoded passwords in scripts"
+regex = '''(?i)(password|passwd|pwd)\s*[:=]\s*["'][^"']{4,}["']'''
+path = '''.*\.(sh|bash|py)$'''
+tags = ["password", "hardcoded", "secret"]
+
+# Allowlist specific files that are known to be safe
+[[allowlist]]
+description = "Documentation files"
+regex = '''README\.md|CHANGELOG\.md|docs/.*\.md'''
+
+[[allowlist]]
+description = "Example configuration files"
+regex = '''.*\.example$|.*\.template$|.*\.sample$'''
+
+[[allowlist]]
+description = "Test files with dummy data"
+regex = '''test.*|.*test.*|.*_test\..*'''
+
+[[allowlist]]
+description = "Known safe placeholder values"
+regex = '''(password|secret|key|token)\s*[:=]\s*["']?(your_|example_|placeholder_|dummy_|test_|sample_)'''
+
+[[allowlist]]
+description = "Empty or null values"
+regex = '''(password|secret|key|token)\s*[:=]\s*["']?(\s*|null|nil|none|empty|""|'')["']?'''
+
+[[allowlist]]
+description = "Environment variable references"
+regex = '''\$\{?[A-Z_]+\}?|\$[A-Z_]+'''
+
+[[allowlist]]
+description = "Configuration file comments and documentation"
+regex = '''^\s*#.*'''
+
+# Paths to ignore completely
+[allowlist.paths]
+paths = [
+    ".git/",
+    "*.log",
+    "*.tmp",
+    "node_modules/",
+    "vendor/",
+    ".github/workflows/security.yml"  # This file contains example patterns
+]
+
+# Additional entropy settings
+[allowlist.regexes]
+regexes = [
+    # Allow common non-secret patterns that might trigger false positives
+    '''(?i)(version|release|build|commit|branch)[:=]\s*["']?[a-zA-Z0-9\-\.]+["']?''',
+    '''(?i)(hostname|servername|domain)[:=]\s*["']?[a-zA-Z0-9\-\.]+["']?''',
+    '''(?i)(username|user|account)[:=]\s*["']?[a-zA-Z0-9\-_]+["']?''',
+    '''(?i)(path|directory|folder)[:=]\s*["']?[\/a-zA-Z0-9\-_\.]+["']?''',
+]

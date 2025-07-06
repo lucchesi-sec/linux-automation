@@ -1,0 +1,337 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Daily security scan at 3:15 AM UTC
+    - cron: '15 3 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  shellcheck:
+    name: Shell Script Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: ShellCheck Analysis
+        uses: ludeeus/action-shellcheck@v2
+        with:
+          scandir: './scripts ./modules ./core'
+          severity: error
+          format: sarif
+          output: shellcheck-results.sarif
+          ignore_paths: |
+            scripts/maintenance/old
+            modules/deprecated
+
+      - name: Upload ShellCheck SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: shellcheck-results.sarif
+          category: shellcheck
+
+      - name: Archive ShellCheck Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shellcheck-results
+          path: shellcheck-results.sarif
+
+  trivy-fs:
+    name: Filesystem Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          exit-code: 0
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs
+
+      - name: Archive Trivy Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-results
+          path: trivy-results.sarif
+
+  bandit:
+    name: Python Security Analysis
+    runs-on: ubuntu-latest
+    if: hashFiles('**/*.py') != ''
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Bandit Security Check
+        run: |
+          bandit -r . -f sarif -o bandit-results.sarif || true
+
+      - name: Upload Bandit SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
+
+      - name: Archive Bandit Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-results
+          path: bandit-results.sarif
+
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: GitLeaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-path: .gitleaks.toml
+
+  security-audit:
+    name: Security Audit Integration
+    runs-on: ubuntu-latest
+    needs: [shellcheck, trivy-fs]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Security Scan Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-results'
+          merge-multiple: true
+
+      - name: Install jq for SARIF processing
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Generate Security Summary Report
+        run: |
+          mkdir -p security-reports
+          
+          # Create security summary
+          cat > security-reports/ci-security-summary.json << EOF
+          {
+            "scan_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repository": "${{ github.repository }}",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "scans": {}
+          }
+          EOF
+          
+          # Process ShellCheck results if available
+          if [ -f "shellcheck-results.sarif" ]; then
+            SHELLCHECK_ISSUES=$(jq '.runs[0].results | length // 0' shellcheck-results.sarif)
+            jq --arg count "$SHELLCHECK_ISSUES" '.scans.shellcheck = {
+              "tool": "ShellCheck",
+              "issues_found": ($count | tonumber),
+              "status": (if ($count | tonumber) > 0 then "issues_found" else "clean" end)
+            }' security-reports/ci-security-summary.json > temp.json && mv temp.json security-reports/ci-security-summary.json
+          fi
+          
+          # Process Trivy results if available
+          if [ -f "trivy-results.sarif" ]; then
+            TRIVY_ISSUES=$(jq '.runs[0].results | length // 0' trivy-results.sarif)
+            jq --arg count "$TRIVY_ISSUES" '.scans.trivy = {
+              "tool": "Trivy",
+              "issues_found": ($count | tonumber),
+              "status": (if ($count | tonumber) > 0 then "vulnerabilities_found" else "clean" end)
+            }' security-reports/ci-security-summary.json > temp.json && mv temp.json security-reports/ci-security-summary.json
+          fi
+          
+          # Process Bandit results if available
+          if [ -f "bandit-results.sarif" ]; then
+            BANDIT_ISSUES=$(jq '.runs[0].results | length // 0' bandit-results.sarif)
+            jq --arg count "$BANDIT_ISSUES" '.scans.bandit = {
+              "tool": "Bandit",
+              "issues_found": ($count | tonumber),
+              "status": (if ($count | tonumber) > 0 then "security_issues_found" else "clean" end)
+            }' security-reports/ci-security-summary.json > temp.json && mv temp.json security-reports/ci-security-summary.json
+          fi
+          
+          echo "Security scan summary:"
+          cat security-reports/ci-security-summary.json | jq .
+
+      - name: Generate Security Badge Data
+        run: |
+          # Calculate overall security status
+          TOTAL_ISSUES=$(jq '[.scans[].issues_found] | add // 0' security-reports/ci-security-summary.json)
+          
+          if [ "$TOTAL_ISSUES" -eq 0 ]; then
+            BADGE_COLOR="brightgreen"
+            BADGE_MESSAGE="secure"
+          elif [ "$TOTAL_ISSUES" -le 5 ]; then
+            BADGE_COLOR="yellow"
+            BADGE_MESSAGE="$TOTAL_ISSUES issues"
+          else
+            BADGE_COLOR="red"
+            BADGE_MESSAGE="$TOTAL_ISSUES issues"
+          fi
+          
+          echo "SECURITY_BADGE_COLOR=$BADGE_COLOR" >> $GITHUB_ENV
+          echo "SECURITY_BADGE_MESSAGE=$BADGE_MESSAGE" >> $GITHUB_ENV
+          echo "TOTAL_SECURITY_ISSUES=$TOTAL_ISSUES" >> $GITHUB_ENV
+
+      - name: Archive Security Summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-reports/
+
+      - name: Comment Security Summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('security-reports/ci-security-summary.json', 'utf8'));
+            
+            let comment = `## 🔒 Security Scan Results\n\n`;
+            comment += `**Scan Date:** ${summary.scan_date}\n`;
+            comment += `**Commit:** ${summary.commit.substring(0, 8)}\n\n`;
+            
+            comment += `### Scan Results:\n`;
+            
+            for (const [tool, result] of Object.entries(summary.scans)) {
+              const status = result.status === 'clean' ? '✅' : '⚠️';
+              comment += `- ${status} **${result.tool}**: ${result.issues_found} issues found\n`;
+            }
+            
+            const totalIssues = Object.values(summary.scans).reduce((sum, scan) => sum + scan.issues_found, 0);
+            
+            if (totalIssues === 0) {
+              comment += `\n🎉 **All security scans passed!** No issues detected.`;
+            } else {
+              comment += `\n📋 **Total Issues:** ${totalIssues}`;
+              comment += `\nPlease review the security findings in the GitHub Security tab.`;
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  security-notification:
+    name: Security Notification
+    runs-on: ubuntu-latest
+    needs: [shellcheck, trivy-fs, secret-scan]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'push')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Security Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-results'
+          merge-multiple: true
+
+      - name: Check for Critical Issues
+        run: |
+          CRITICAL_ISSUES=0
+          
+          # Check ShellCheck for errors
+          if [ -f "shellcheck-results.sarif" ]; then
+            SHELLCHECK_ERRORS=$(jq '[.runs[0].results[] | select(.level == "error")] | length' shellcheck-results.sarif)
+            CRITICAL_ISSUES=$((CRITICAL_ISSUES + SHELLCHECK_ERRORS))
+          fi
+          
+          # Check Trivy for critical/high vulnerabilities
+          if [ -f "trivy-results.sarif" ]; then
+            TRIVY_CRITICAL=$(jq '[.runs[0].results[] | select(.properties.security_severity == "CRITICAL" or .properties.security_severity == "HIGH")] | length' trivy-results.sarif 2>/dev/null || echo 0)
+            CRITICAL_ISSUES=$((CRITICAL_ISSUES + TRIVY_CRITICAL))
+          fi
+          
+          echo "CRITICAL_ISSUES=$CRITICAL_ISSUES" >> $GITHUB_ENV
+          
+          if [ "$CRITICAL_ISSUES" -gt 0 ]; then
+            echo "::warning::Found $CRITICAL_ISSUES critical security issues"
+            echo "SECURITY_STATUS=CRITICAL" >> $GITHUB_ENV
+          else
+            echo "SECURITY_STATUS=OK" >> $GITHUB_ENV
+          fi
+
+      - name: Create Security Issue for Critical Findings
+        if: env.SECURITY_STATUS == 'CRITICAL'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Critical Security Issues Detected - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Critical Security Issues Detected
+            
+            Our automated security scanning has detected **${{ env.CRITICAL_ISSUES }}** critical security issues that require immediate attention.
+            
+            ### Scan Details:
+            - **Date:** ${new Date().toISOString()}
+            - **Commit:** ${{ github.sha }}
+            - **Branch:** ${{ github.ref_name }}
+            - **Workflow:** ${{ github.workflow }}
+            
+            ### Next Steps:
+            1. Review the detailed findings in the [GitHub Security tab](https://github.com/${{ github.repository }}/security)
+            2. Address critical and high-severity issues immediately
+            3. Run the existing security audit: \`./scripts/administration/daily_security_audit.sh\`
+            4. Update security configurations as needed
+            
+            ### Scan Results:
+            The following security tools detected issues:
+            - ShellCheck: Static analysis of shell scripts
+            - Trivy: Vulnerability scanning
+            - GitLeaks: Secret detection
+            
+            This issue was automatically created by the Security Scanning workflow.
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['security', 'critical', 'automated']
+            });
