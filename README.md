@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icons8-linux-64.png" alt="Linux icon">
+</p>
+
 # Linux Daily Administration Automation
 
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/lucchesi-sec/linux-automation/graphs/commit-activity)
