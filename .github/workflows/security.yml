@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: ShellCheck Analysis
-        uses: ludeeus/action-shellcheck@v2
+        uses: ludeeus/action-shellcheck@master
         with:
           scandir: './scripts ./modules ./core'
           severity: error
@@ -93,8 +93,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          config-path: .gitleaks.toml
 
   security-audit:
     name: Security Audit Integration
