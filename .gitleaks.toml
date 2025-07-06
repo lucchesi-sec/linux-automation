@@ -43,8 +43,8 @@ tags = ["password", "hardcoded", "secret"]
 [allowlist]
 paths = [
     ".git/",
-    "*.log", 
-    "*.tmp",
+    ".*\\.log$", 
+    ".*\\.tmp$",
     "node_modules/",
     "vendor/",
     ".github/workflows/security.yml"
