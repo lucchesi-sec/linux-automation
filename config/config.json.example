@@ -61,6 +61,42 @@
     }
   },
   "modules": {
+    "service_management": {
+      "enabled": true,
+      "check_frequency": "daily",
+      "auto_restart": true,
+      "restart_delay_seconds": 30,
+      "max_restart_attempts": 3,
+      "monitoring_interval": 300,
+      "critical_services": [
+        "sshd",
+        "systemd-resolved",
+        "cron",
+        "NetworkManager"
+      ],
+      "notification_on_failure": true,
+      "generate_dependencies_report": true
+    },
+    "package_management": {
+      "enabled": true,
+      "check_frequency": "daily",
+      "auto_install_security": false,
+      "severity_levels": ["critical"],
+      "update_sources": true,
+      "create_snapshots": true,
+      "reboot_if_required": false,
+      "exclude_packages": [],
+      "notification_on_updates": true,
+      "max_update_attempts": 3,
+      "package_manager": "auto-detect",
+      "snapshot_tool_preference": ["timeshift", "snapper", "lvm"],
+      "security_repositories": {
+        "apt": ["security.ubuntu.com", "security.debian.org"],
+        "yum": ["rhel-security", "centos-security"],
+        "dnf": ["fedora-security", "rhel-security"],
+        "zypper": ["security"]
+      }
+    },
     "user_management": {
       "enabled": true,
       "check_frequency": "daily",
@@ -154,6 +190,32 @@
         "failed_login_limit": 10,
         "security_score_minimum": 70
       }
+    },
+    "process_management": {
+      "enabled": true,
+      "check_frequency": "daily",
+      "cpu_threshold_warning": 80,
+      "cpu_threshold_critical": 90,
+      "memory_threshold_warning": 85,
+      "memory_threshold_critical": 95,
+      "disk_threshold_warning": 80,
+      "disk_threshold_critical": 90,
+      "load_threshold_warning": 2.0,
+      "load_threshold_critical": 5.0,
+      "high_resource_processes": 10,
+      "auto_kill_zombies": false,
+      "process_monitoring": {
+        "cpu_intensive_threshold": 50,
+        "memory_intensive_threshold": 20,
+        "long_running_threshold_hours": 24
+      },
+      "optimization": {
+        "suggest_process_limits": true,
+        "suggest_service_tuning": true,
+        "suggest_kernel_params": true
+      },
+      "notification_on_high_usage": true,
+      "generate_optimization_report": true
     },
     "log_management": {
       "enabled": true,

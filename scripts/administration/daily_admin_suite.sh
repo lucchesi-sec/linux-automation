@@ -14,6 +14,9 @@ MASTER_REPORT="$REPORT_DIR/daily_admin_master_$TODAY.html"
 
 # Task scripts
 declare -A ADMIN_SCRIPTS=(
+    ["service_check"]="$SUITE_DIR/daily_service_check.sh"
+    ["package_check"]="$SUITE_DIR/daily_package_check.sh"
+    ["process_check"]="$SUITE_DIR/daily_process_check.sh"
     ["user_tasks"]="$SUITE_DIR/daily_user_tasks.sh"
     ["backup_check"]="$SUITE_DIR/daily_backup_check.sh"
     ["security_check"]="$SUITE_DIR/daily_security_check.sh"
@@ -241,6 +244,9 @@ EOF
     <div class="section">
         <h2>Individual Reports</h2>
         <ul>
+            <li><a href="service_management_$TODAY.html">Service Management Report</a></li>
+            <li><a href="package_management_$TODAY.html">Package Management Report</a></li>
+            <li><a href="process_management_$TODAY.html">Process Management Report</a></li>
             <li><a href="daily_user_summary_$TODAY.html">User Management Report</a></li>
             <li><a href="daily_backup_summary_$TODAY.html">Backup Status Report</a></li>
             <li><a href="daily_security_summary_$TODAY.html">Security Audit Report</a></li>
@@ -349,7 +355,7 @@ Options:
     -h, --help          Show this help message
     -v, --verbose       Enable verbose logging
     -q, --quiet         Suppress non-error output
-    --skip TASK         Skip specific task (user_tasks, backup_check, security_check, log_management, system_report)
+    --skip TASK         Skip specific task (service_check, package_check, process_check, user_tasks, backup_check, security_check, log_management, system_report)
     --only TASK         Run only specified task
     --dry-run           Show what would be executed without running
 
@@ -357,7 +363,7 @@ Examples:
     $0                          Run all daily admin tasks
     $0 --verbose                Run with detailed logging
     $0 --skip security_check    Skip security audit
-    $0 --only backup_check      Run only backup verification
+    $0 --only package_check     Run only package management
     $0 --dry-run               Preview execution plan
 
 Available Tasks:

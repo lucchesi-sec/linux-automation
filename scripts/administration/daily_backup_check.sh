@@ -2,9 +2,9 @@
 # Daily Backup Verification Script
 # Automated backup monitoring and verification
 
-# Source core libraries and backup monitoring module
+# Source core libraries and backup management module
 source "$(dirname "$0")/../../core/lib/init.sh"
-source "$(dirname "$0")/../../modules/system/backup_monitor.sh"
+source "$(dirname "$0")/../../modules/backup/backup_manager.sh"
 
 # Configuration
 SCRIPT_NAME="Daily Backup Check"
@@ -33,76 +33,14 @@ EOF
 main() {
     log_info "Starting $SCRIPT_NAME"
     
-    # Ensure report directory exists
-    mkdir -p "$REPORT_DIR"
-    
-    # Create backup config if needed
-    create_backup_config
-    
-    local exit_code=0
-    local task_results=()
-    
-    # Task 1: Monitor backup jobs status
-    log_info "Monitoring backup job status"
-    if monitor_backup_jobs "$BACKUP_CONFIG" "$REPORT_DIR/backup_status_$TODAY.txt"; then
-        task_results+=("✓ All backup jobs completed successfully")
+    # Run comprehensive backup management
+    if run_backup_management; then
+        log_success "Daily backup check completed successfully"
+        return 0
     else
-        task_results+=("✗ Some backup jobs failed")
-        exit_code=1
+        log_error "Daily backup check completed with issues"
+        return 1
     fi
-    
-    # Task 2: Check backup storage space
-    log_info "Checking backup storage space"
-    local backup_dirs=("/backup" "/var/backups")
-    
-    for backup_dir in "${backup_dirs[@]}"; do
-        if [[ -d "$backup_dir" ]]; then
-            if manage_backup_storage "$backup_dir" 30 85 95; then
-                task_results+=("✓ Backup storage $backup_dir: OK")
-            else
-                task_results+=("⚠ Backup storage $backup_dir: Issues detected")
-                # Don't fail script for storage warnings
-            fi
-        fi
-    done
-    
-    # Task 3: Test sample backup restore
-    log_info "Testing backup restore capabilities"
-    local test_backup=$(find /backup -name "*.tar.gz" -o -name "*.zip" | head -1)
-    if [[ -n "$test_backup" ]]; then
-        if test_backup_restore "$test_backup"; then
-            task_results+=("✓ Backup restore test successful")
-        else
-            task_results+=("✗ Backup restore test failed")
-            exit_code=1
-        fi
-    else
-        task_results+=("⚠ No backup files found for restore testing")
-    fi
-    
-    # Task 4: Verify recent backups integrity
-    log_info "Verifying backup file integrity"
-    local integrity_issues=0
-    
-    # Check backups from last 24 hours
-    while IFS= read -r -d '' backup_file; do
-        if ! verify_backup_integrity "$backup_file" "" 24; then
-            ((integrity_issues++))
-        fi
-    done < <(find /backup -type f -mtime -1 \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.sql.gz" \) -print0 2>/dev/null)
-    
-    if [[ $integrity_issues -eq 0 ]]; then
-        task_results+=("✓ All recent backups passed integrity checks")
-    else
-        task_results+=("✗ $integrity_issues backup(s) failed integrity checks")
-        exit_code=1
-    fi
-    
-    # Generate comprehensive report
-    generate_backup_report "${task_results[@]}"
-    
-    log_info "$SCRIPT_NAME completed with exit code $exit_code"
-    return $exit_code
 }
 
 # Generate detailed backup report

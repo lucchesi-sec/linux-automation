@@ -4,7 +4,7 @@
 
 # Source core libraries and user management module
 source "$(dirname "$0")/../../core/lib/init.sh"
-source "$(dirname "$0")/../../modules/users/user_management.sh"
+source "$(dirname "$0")/../../modules/users/user_manager.sh"
 
 # Configuration
 SCRIPT_NAME="Daily User Tasks"
@@ -15,44 +15,14 @@ TODAY=$(date +%Y%m%d)
 main() {
     log_info "Starting $SCRIPT_NAME"
     
-    # Ensure report directory exists
-    mkdir -p "$REPORT_DIR"
-    
-    local exit_code=0
-    local task_results=()
-    
-    # Task 1: Check user accounts
-    log_info "Performing user account verification"
-    if check_user_accounts "$REPORT_DIR/user_accounts_$TODAY.txt"; then
-        task_results+=("✓ User account verification completed")
+    # Run comprehensive user management
+    if run_user_management; then
+        log_success "Daily user management tasks completed successfully"
+        return 0
     else
-        task_results+=("✗ User account verification found issues")
-        exit_code=1
+        log_error "Daily user management tasks completed with security issues"
+        return 1
     fi
-    
-    # Task 2: Clean temporary files
-    log_info "Cleaning user temporary files"
-    if cleanup_user_temp 7; then
-        task_results+=("✓ Temporary file cleanup completed")
-    else
-        task_results+=("✗ Temporary file cleanup failed")
-        exit_code=1
-    fi
-    
-    # Task 3: Check for failed login attempts
-    log_info "Analyzing failed login attempts"
-    if check_failed_logins 5 "$REPORT_DIR/failed_logins_$TODAY.txt"; then
-        task_results+=("✓ Login security check completed")
-    else
-        task_results+=("⚠ Suspicious login activity detected")
-        # Don't set exit_code=1 for this as it's informational
-    fi
-    
-    # Generate summary report
-    generate_summary_report "${task_results[@]}"
-    
-    log_info "$SCRIPT_NAME completed with exit code $exit_code"
-    return $exit_code
 }
 
 # Generate HTML summary report
