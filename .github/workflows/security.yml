@@ -82,7 +82,7 @@ jobs:
   bandit:
     name: Python Security Analysis
     runs-on: ubuntu-latest
-    if: hashFiles('**/*.py') != ''
+    if: ${{ hashFiles('**/*.py') != '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
