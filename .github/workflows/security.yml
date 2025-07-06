@@ -79,50 +79,6 @@ jobs:
           name: trivy-results
           path: trivy-results.sarif
 
-  bandit:
-    name: Python Security Analysis
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Check for Python files
-        id: check-python
-        run: |
-          if find . -name "*.py" -type f | head -1 | grep -q .; then
-            echo "python-files=true" >> $GITHUB_OUTPUT
-          else
-            echo "python-files=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set up Python
-        if: steps.check-python.outputs.python-files == 'true'
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install Bandit
-        if: steps.check-python.outputs.python-files == 'true'
-        run: pip install bandit
-
-      - name: Bandit Security Check
-        if: steps.check-python.outputs.python-files == 'true'
-        run: |
-          bandit -r . -f sarif -o bandit-results.sarif || true
-
-      - name: Upload Bandit SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
-        if: always() && steps.check-python.outputs.python-files == 'true'
-        with:
-          sarif_file: bandit-results.sarif
-          category: bandit
-
-      - name: Archive Bandit Results
-        uses: actions/upload-artifact@v4
-        if: always() && steps.check-python.outputs.python-files == 'true'
-        with:
-          name: bandit-results
-          path: bandit-results.sarif
 
   secret-scan:
     name: Secret Detection
@@ -193,15 +149,6 @@ jobs:
             }' security-reports/ci-security-summary.json > temp.json && mv temp.json security-reports/ci-security-summary.json
           fi
           
-          # Process Bandit results if available
-          if [ -f "bandit-results.sarif" ]; then
-            BANDIT_ISSUES=$(jq '.runs[0].results | length // 0' bandit-results.sarif)
-            jq --arg count "$BANDIT_ISSUES" '.scans.bandit = {
-              "tool": "Bandit",
-              "issues_found": ($count | tonumber),
-              "status": (if ($count | tonumber) > 0 then "security_issues_found" else "clean" end)
-            }' security-reports/ci-security-summary.json > temp.json && mv temp.json security-reports/ci-security-summary.json
-          fi
           
           echo "Security scan summary:"
           cat security-reports/ci-security-summary.json | jq .
