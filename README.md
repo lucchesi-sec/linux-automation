@@ -1,5 +1,11 @@
 # Linux Daily Administration Automation
 
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/lucchesi-sec/linux-automation/graphs/commit-activity)
+[![GitHub last commit](https://img.shields.io/github/last-commit/lucchesi-sec/linux-automation.svg)](https://github.com/lucchesi-sec/linux-automation/commits/main)
+[![GitHub issues](https://img.shields.io/github/issues/lucchesi-sec/linux-automation.svg)](https://github.com/lucchesi-sec/linux-automation/issues)
+[![GitHub forks](https://img.shields.io/github/forks/lucchesi-sec/linux-automation.svg)](https://github.com/lucchesi-sec/linux-automation/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/lucchesi-sec/linux-automation.svg)](https://github.com/lucchesi-sec/linux-automation/stargazers)
+[![Made with Bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 A comprehensive suite of Bash scripts for automating daily administrative tasks on Linux systems. This toolkit provides enterprise-grade automation for user management, backup verification, security auditing, log management, and system maintenance.
