@@ -59,8 +59,12 @@ source_lib() {
 
 # Load core libraries in order
 source_lib "logging.sh"
+source_lib "display.sh"
 source_lib "config.sh"
 source_lib "privileges.sh"
+source_lib "security.sh"
+source_lib "error_handler.sh"
+source_lib "dry_run.sh"
 source_lib "notifications.sh"
 
 # Initialize core systems
@@ -76,10 +80,22 @@ init_bash_admin() {
     log_info "Starting Bash Admin: $script_name" "INIT"
     log_debug "Bash Admin root: $BASH_ADMIN_ROOT" "INIT"
     
+    # Initialize display module
+    init_display
+    
     # Initialize configuration
     if ! init_config; then
         log_fatal "Failed to initialize configuration" "INIT"
     fi
+    
+    # Initialize security module
+    init_security
+    
+    # Initialize error handling
+    init_error_handling
+    
+    # Initialize dry-run mode
+    init_dry_run
     
     # Set up signal handlers
     trap 'log_info "Received SIGTERM, shutting down gracefully" "INIT"; exit 0' TERM
@@ -153,8 +169,12 @@ Root: $BASH_ADMIN_ROOT
 
 Available functions:
   Logging: log_debug, log_info, log_warn, log_error, log_fatal, log_success
+  Display: print_color, print_status, print_header, print_progress_bar, start_spinner
   Config:  get_config, set_config, has_config, list_config, require_config
   Privileges: check_root_privileges, require_root, execute_privileged
+  Security: validate_ssh_config, check_password_policy, generate_security_audit
+  Error Handling: register_rollback, execute_rollback, safe_execute, retry_with_backoff
+  Dry Run: enable_dry_run, dry_run_execute, generate_dry_run_summary
   Notifications: send_email, send_notification, generate_html_report
 
 Usage:
