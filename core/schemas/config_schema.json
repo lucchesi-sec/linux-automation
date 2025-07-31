@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Bash Admin Configuration Schema",
+  "description": "JSON Schema for validating bash-admin configuration files",
+  "type": "object",
+  "properties": {
+    "system": {
+      "type": "object",
+      "properties": {
+        "hostname": {"type": "string"},
+        "timezone": {"type": "string", "enum": ["UTC", "local", "EST", "CST", "PST", "GMT", "CET", "JST"]},
+        "environment": {"type": "string", "enum": ["development", "testing", "staging", "production"]},
+        "data_directory": {"type": "string", "pattern": "^/"},
+        "temp_directory": {"type": "string", "pattern": "^/"},
+        "lock_directory": {"type": "string", "pattern": "^/"}
+      },
+      "required": ["data_directory", "temp_directory", "lock_directory"]
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": {"type": "string", "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]},
+        "retention_days": {"type": "integer", "minimum": 1, "maximum": 365},
+        "max_size_mb": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "compress_after_days": {"type": "integer", "minimum": 1, "maximum": 30},
+        "destinations": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["file", "syslog", "console", "email"]}
+        },
+        "file_path": {"type": "string", "pattern": "^/"},
+        "syslog_facility": {"type": "string"},
+        "include_timestamps": {"type": "boolean"},
+        "include_hostname": {"type": "boolean"},
+        "color_output": {"type": "boolean"}
+      },
+      "required": ["level", "retention_days", "file_path"]
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "default_priority": {"type": "string", "enum": ["low", "normal", "high", "critical"]},
+        "rate_limiting": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "max_per_hour": {"type": "integer", "minimum": 1, "maximum": 1000}
+          }
+        },
+        "smtp": {
+          "type": "object",
+          "properties": {
+            "server": {"type": "string"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "security": {"type": "string", "enum": ["none", "ssl", "tls", "starttls"]},
+            "timeout": {"type": "integer", "minimum": 5, "maximum": 300},
+            "from_address": {"type": "string", "format": "email"},
+            "from_name": {"type": "string"}
+          },
+          "required": ["server", "port", "from_address"]
+        },
+        "recipients": {
+          "type": "object",
+          "patternProperties": {
+            ".*": {"type": "string", "format": "email"}
+          }
+        }
+      },
+      "required": ["enabled"]
+    },
+    "modules": {
+      "type": "object",
+      "properties": {
+        "service_management": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "check_frequency": {"type": "string", "enum": ["hourly", "daily", "weekly"]},
+            "auto_restart": {"type": "boolean"},
+            "restart_delay_seconds": {"type": "integer", "minimum": 5, "maximum": 300},
+            "max_restart_attempts": {"type": "integer", "minimum": 1, "maximum": 10},
+            "critical_services": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "notification_on_failure": {"type": "boolean"}
+          }
+        },
+        "backup_monitor": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "check_frequency": {"type": "string", "enum": ["hourly", "daily", "weekly"]},
+            "backup_paths": {
+              "type": "array",
+              "items": {"type": "string", "pattern": "^/"}
+            },
+            "retention_days": {"type": "integer", "minimum": 1, "maximum": 365},
+            "verification_enabled": {"type": "boolean"},
+            "integrity_checks": {
+              "type": "object",
+              "properties": {
+                "checksum_validation": {"type": "boolean"},
+                "restore_testing": {"type": "boolean"},
+                "size_validation": {"type": "boolean"}
+              }
+            },
+            "storage_thresholds": {
+              "type": "object",
+              "properties": {
+                "warning_percent": {"type": "integer", "minimum": 1, "maximum": 99},
+                "critical_percent": {"type": "integer", "minimum": 1, "maximum": 99}
+              }
+            }
+          }
+        }
+      }
+    },
+    "scheduling": {
+      "type": "object",
+      "properties": {
+        "daily_suite": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "time": {"type": "string", "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"},
+            "timeout_minutes": {"type": "integer", "minimum": 5, "maximum": 120}
+          }
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "properties": {
+        "max_concurrent_jobs": {"type": "integer", "minimum": 1, "maximum": 16},
+        "job_timeout_minutes": {"type": "integer", "minimum": 5, "maximum": 120},
+        "memory_limit_mb": {"type": "integer", "minimum": 64, "maximum": 8192},
+        "cache_enabled": {"type": "boolean"},
+        "cache_ttl_minutes": {"type": "integer", "minimum": 5, "maximum": 1440}
+      }
+    }
+  },
+  "required": [
+    "system",
+    "logging",
+    "notifications",
+    "modules"
+  ]
+}

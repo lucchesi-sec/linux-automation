@@ -2,8 +2,9 @@
 # Service Management Module
 # Provides functions for SystemD service monitoring and management
 
-# Source core libraries
+# Source core libraries and initialize system
 source "$(dirname "$0")/../../core/lib/init.sh"
+init_bash_admin "$(basename "$0")"      # Issue #1: Added missing initialization
 
 # Monitor critical services and return status
 monitor_critical_services() {

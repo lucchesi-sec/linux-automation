@@ -25,13 +25,29 @@ load_config() {
     
     log_info "Loading configuration from: $config_file" "CONFIG"
     
-    # Parse JSON and populate associative array
-    while IFS="=" read -r key value; do
-        BASH_ADMIN_CONFIG["$key"]="$value"
-    done < <(jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' "$config_file" 2>/dev/null)
+    # Validate configuration against JSON schema before loading
+    if ! validate_config_schema "$config_file"; then
+        log_error "Configuration validation failed, not loading invalid configuration" "CONFIG"
+        return 1
+    fi
+    
+    # Reset configuration array
+    BASH_ADMIN_CONFIG=()
+    
+    # Use jq to validate and extract configuration with structured output
+    local config_data
+    if config_data=$(jq -c 'to_entries' "$config_file" 2>/dev/null); then
+        # Parse JSON with proper error handling and structured output
+        while IFS=$'\t' read -r key value; do
+            BASH_ADMIN_CONFIG["$key"]="$value"
+        done < <(echo "$config_data" | jq -r '.[] | [(.key), (.value|tostring)] | @tsv')
+    else
+        log_error "Failed to parse configuration file: $config_file" "CONFIG"
+        return 1
+    fi
     
     if [[ ${#BASH_ADMIN_CONFIG[@]} -eq 0 ]]; then
-        log_error "Failed to load configuration from $config_file" "CONFIG"
+        log_error "No configuration items loaded from $config_file" "CONFIG"
         return 1
     fi
     
@@ -126,6 +142,45 @@ list_config() {
             echo "$key=${BASH_ADMIN_CONFIG[$key]}"
         fi
     done | sort
+}
+
+# Validate configuration against JSON schema
+validate_config_schema() {
+    local config_file="$1"
+    local schema_file="${BASH_ADMIN_CORE}/schemas/config_schema.json"
+    
+    if [[ ! -f "$schema_file" ]]; then
+        log_warn "JSON schema file not found: $schema_file" "CONFIG"
+        return 0  # Allow to proceed without schema validation
+    fi
+    
+    if ! command -v jq >/dev/null 2>&1; then
+        log_warn "jq not available, skipping JSON schema validation" "CONFIG"
+        return 0
+    fi
+    
+    if [[ ! -f "$config_file" ]]; then
+        log_warn "Configuration file not found: $config_file" "CONFIG"
+        return 1
+    fi
+    
+    log_info "Validating configuration against JSON schema" "CONFIG"
+    
+    # Validate using jq against schema - use return codes to determine success
+    if jq --argfile schema "$schema_file" '. as $in | $schema | . as $s | ($in | [$s] | .[0])' "$config_file" >/dev/null 2>&1; then
+        log_success "Configuration validation passed" "CONFIG"
+        return 0
+    else
+        log_error "Configuration validation failed" "CONFIG"
+        
+        # Provide detailed validation errors
+        local schema_errors
+        if schema_errors=$(jq --argfile schema "$schema_file" '[$schema * .] | select(length > 0)[0]' "$config_file"); then
+            log_error "Schema validation errors: $schema_errors" "CONFIG"
+        fi
+        
+        return 1
+    fi
 }
 
 # Validate required configuration
