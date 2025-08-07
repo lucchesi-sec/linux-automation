@@ -1,0 +1,219 @@
+{
+  "system": {
+    "platform": "auto-detect",
+    "log_level": "INFO",
+    "dry_run_default": false,
+    "color_output": true,
+    "timezone": "UTC"
+  },
+  "modules": {
+    "user_management": {
+      "enabled": true,
+      "excluded_users": [
+        "root",
+        "daemon",
+        "bin",
+        "sys",
+        "nobody",
+        "_*"
+      ],
+      "uid_ranges": {
+        "system": {
+          "min": 0,
+          "max": 999
+        },
+        "regular": {
+          "min": 1000,
+          "max": 60000
+        }
+      },
+      "password_policy": {
+        "require_password": true,
+        "min_password_age": 1,
+        "max_password_age": 90,
+        "warn_period": 7,
+        "min_length": 12,
+        "require_complexity": true
+      },
+      "allowed_shells": [
+        "/bin/bash",
+        "/bin/sh",
+        "/usr/bin/bash",
+        "/usr/bin/sh",
+        "/bin/zsh",
+        "/usr/bin/zsh"
+      ],
+      "security_thresholds": {
+        "critical_score": 50,
+        "high_risk_score": 70,
+        "acceptable_score": 80
+      }
+    },
+    "package_management": {
+      "enabled": true,
+      "auto_update_cache": true,
+      "cache_ttl_minutes": 60,
+      "security_updates_only": false,
+      "excluded_packages": [],
+      "repository_mirrors": {},
+      "update_schedule": "daily",
+      "notification_channels": ["log", "email"]
+    },
+    "service_management": {
+      "enabled": true,
+      "critical_services": [
+        "sshd",
+        "networking",
+        "firewall"
+      ],
+      "monitored_services": [],
+      "restart_policy": {
+        "max_attempts": 3,
+        "delay_seconds": 10,
+        "backoff_multiplier": 2
+      },
+      "health_check_interval": 300
+    },
+    "process_management": {
+      "enabled": true,
+      "cpu_threshold_percent": 90,
+      "memory_threshold_percent": 85,
+      "zombie_process_action": "notify",
+      "resource_limits": {
+        "max_processes_per_user": 256,
+        "max_open_files": 4096
+      }
+    },
+    "backup": {
+      "enabled": true,
+      "backup_directory": "/var/backups",
+      "retention_days": 30,
+      "compression": "gzip",
+      "encryption": false,
+      "schedule": {
+        "daily": true,
+        "weekly": true,
+        "monthly": true
+      },
+      "exclude_patterns": [
+        "*.tmp",
+        "*.log",
+        "*.cache"
+      ]
+    },
+    "logging": {
+      "enabled": true,
+      "log_directory": "/var/log/admin-tools",
+      "max_log_size_mb": 100,
+      "max_log_files": 10,
+      "log_rotation": "daily",
+      "syslog_integration": true,
+      "levels": {
+        "DEBUG": false,
+        "INFO": true,
+        "WARNING": true,
+        "ERROR": true,
+        "CRITICAL": true
+      }
+    },
+    "security": {
+      "enabled": true,
+      "audit_enabled": true,
+      "selinux_enforce": false,
+      "firewall_strict_mode": false,
+      "failed_login_threshold": 5,
+      "lockout_duration_minutes": 30,
+      "password_history_count": 5,
+      "two_factor_required": false,
+      "allowed_ssh_users": [],
+      "denied_ssh_users": [],
+      "port_scan_detection": true
+    },
+    "notifications": {
+      "enabled": true,
+      "email": {
+        "enabled": false,
+        "smtp_server": "",
+        "smtp_port": 587,
+        "from_address": "admin@localhost",
+        "to_addresses": [],
+        "use_tls": true
+      },
+      "slack": {
+        "enabled": false,
+        "webhook_url": "",
+        "channel": "#alerts",
+        "username": "Admin Bot"
+      },
+      "syslog": {
+        "enabled": true,
+        "facility": "local0",
+        "severity_filter": "WARNING"
+      }
+    },
+    "performance": {
+      "parallel_execution": true,
+      "max_parallel_jobs": 4,
+      "command_timeout_seconds": 300,
+      "cache_enabled": true,
+      "cache_directory": "/tmp/admin-tools-cache",
+      "profiling_enabled": false
+    }
+  },
+  "integrations": {
+    "monitoring": {
+      "prometheus": {
+        "enabled": false,
+        "port": 9090,
+        "metrics_path": "/metrics"
+      },
+      "grafana": {
+        "enabled": false,
+        "url": "http://localhost:3000"
+      }
+    },
+    "configuration_management": {
+      "ansible": {
+        "enabled": false,
+        "inventory_file": "/etc/ansible/hosts"
+      },
+      "puppet": {
+        "enabled": false,
+        "server": ""
+      }
+    },
+    "cloud": {
+      "aws": {
+        "enabled": false,
+        "region": "us-east-1",
+        "profile": "default"
+      },
+      "azure": {
+        "enabled": false,
+        "subscription_id": ""
+      },
+      "gcp": {
+        "enabled": false,
+        "project_id": ""
+      }
+    }
+  },
+  "environment": {
+    "paths": {
+      "bin": "/usr/local/bin:/usr/bin:/bin",
+      "lib": "/usr/local/lib:/usr/lib",
+      "config": "/etc/admin-tools"
+    },
+    "variables": {
+      "ADMIN_TOOLS_HOME": "/opt/admin-tools",
+      "ADMIN_TOOLS_CONFIG": "/etc/admin-tools/config.json",
+      "ADMIN_TOOLS_LOG": "/var/log/admin-tools"
+    }
+  },
+  "metadata": {
+    "version": "2.0.0",
+    "last_updated": "2024-01-01T00:00:00Z",
+    "author": "System Administrator",
+    "description": "Centralized configuration for admin tools following SOLID principles"
+  }
+}
