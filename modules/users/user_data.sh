@@ -138,8 +138,17 @@ get_all_user_data_json() {
     user_info=$(system_api_get_user "$username" "all")
     [[ -z "$user_info" ]] && return 1
     
-    # Parse user info
+    # Parse user info with field validation
+    local uname="" uid="" gid="" gecos="" home="" shell=""
     IFS=: read -r uname _ uid gid gecos home shell <<< "$user_info"
+    
+    # Provide defaults for missing fields
+    uname="${uname:-unknown}"
+    uid="${uid:-0}"
+    gid="${gid:-0}"
+    gecos="${gecos:-}"
+    home="${home:-/nonexistent}"
+    shell="${shell:-/bin/false}"
     
     shadow_info=$(system_api_get_shadow_info "$username" "all")
     groups=$(system_api_get_user_groups "$username")
@@ -171,7 +180,14 @@ fetch_excluded_users() {
     local default_excluded="root daemon bin sys nobody"
     
     if [[ -f "$config_file" ]] && command -v jq >/dev/null 2>&1; then
-        jq -r '.modules.user_management.excluded_users[]' "$config_file" 2>/dev/null || echo "$default_excluded"
+        local excluded_users
+        excluded_users=$(jq -r '.modules.user_management.excluded_users[]' "$config_file" 2>/dev/null)
+        if [[ $? -eq 0 && -n "$excluded_users" ]]; then
+            echo "$excluded_users"
+        else
+            echo "Warning: Failed to parse excluded_users from $config_file, using default list." >&2
+            echo "$default_excluded"
+        fi
     else
         echo "$default_excluded"
     fi

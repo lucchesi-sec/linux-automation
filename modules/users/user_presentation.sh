@@ -65,8 +65,22 @@ format_user_status_json() {
     local user_data="$1"
     local analysis="$2"
     
+    # Validate JSON inputs before merging
+    if ! echo "$user_data" | jq empty 2>/dev/null; then
+        echo "Error: Invalid user_data JSON" >&2
+        return 1
+    fi
+    
+    if ! echo "$analysis" | jq empty 2>/dev/null; then
+        echo "Error: Invalid analysis JSON" >&2
+        return 1
+    fi
+    
     # Merge user data and analysis
-    jq -s '.[0] * .[1]' <(echo "$user_data") <(echo "$analysis") 2>/dev/null
+    jq -s '.[0] * .[1]' <(echo "$user_data") <(echo "$analysis") 2>/dev/null || {
+        echo "Error: Failed to merge JSON data" >&2
+        return 1
+    }
 }
 
 # Format user status as HTML
@@ -259,7 +273,20 @@ EOF
 # Display colored output helpers
 display_colored_status() {
     local status="$1"
-    local use_colors="${2:-true}"
+    local use_colors="${2:-auto}"
+    
+    # Auto-detect terminal color support
+    if [[ "$use_colors" == "auto" ]]; then
+        if [[ -t 1 ]] && command -v tput >/dev/null 2>&1; then
+            if [[ $(tput colors 2>/dev/null) -ge 8 ]]; then
+                use_colors="true"
+            else
+                use_colors="false"
+            fi
+        else
+            use_colors="false"
+        fi
+    fi
     
     if [[ "$use_colors" == "false" ]]; then
         echo "$status"
@@ -284,7 +311,20 @@ display_colored_status() {
 
 display_colored_risk() {
     local risk="$1"
-    local use_colors="${2:-true}"
+    local use_colors="${2:-auto}"
+    
+    # Auto-detect terminal color support
+    if [[ "$use_colors" == "auto" ]]; then
+        if [[ -t 1 ]] && command -v tput >/dev/null 2>&1; then
+            if [[ $(tput colors 2>/dev/null) -ge 8 ]]; then
+                use_colors="true"
+            else
+                use_colors="false"
+            fi
+        else
+            use_colors="false"
+        fi
+    fi
     
     if [[ "$use_colors" == "false" ]]; then
         echo "$risk"

@@ -153,6 +153,13 @@ lazy_load() {
         if ! is_library_loaded '$library'; then
             load_library '$library' || return 1
         fi
+        
+        # Verify the function is now defined after loading
+        if ! declare -f $function >/dev/null 2>&1; then
+            echo \"Error: Function '$function' not defined after loading library '$library'\" >&2
+            return 1
+        fi
+        
         # Redefine to call the real function
         unset -f $function
         $function \"\$@\"

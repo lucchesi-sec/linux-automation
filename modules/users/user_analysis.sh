@@ -44,9 +44,14 @@ analyze_user_status() {
     esac
     
     # Analyze UID
-    if [[ "$uid" -eq 0 ]] && [[ "$(echo "$user_json" | jq -r '.username')" != "root" ]]; then
-        security_flags+=("UID_ZERO_NON_ROOT")
-        risk_level="CRITICAL"
+    if [[ "$uid" =~ ^[0-9]+$ ]]; then
+        if [[ "$uid" -eq 0 ]] && [[ "$(echo "$user_json" | jq -r '.username')" != "root" ]]; then
+            security_flags+=("UID_ZERO_NON_ROOT")
+            risk_level="CRITICAL"
+        fi
+    else
+        security_flags+=("INVALID_UID")
+        risk_level="HIGH"
     fi
     
     # Analyze shell
@@ -106,14 +111,16 @@ calculate_password_age() {
     fi
     
     # Calculate expiry
-    if [[ -n "$max_age" && "$max_age" != "" && "$max_age" -gt 0 ]]; then
-        days_until_expiry=$((max_age - age_days))
-        [[ $days_until_expiry -lt 0 ]] && is_expired=true
+    if [[ -n "$max_age" && "$max_age" != "" ]]; then
+        if [[ "$max_age" =~ ^[0-9]+$ ]] && [[ "$max_age" -gt 0 ]]; then
+            days_until_expiry=$((max_age - age_days))
+            [[ $days_until_expiry -lt 0 ]] && is_expired=true
+        fi
     fi
     
     # Check account expiry
     if [[ -n "$expire_date" && "$expire_date" != "" ]]; then
-        if [[ $expire_date -lt $current_days ]]; then
+        if [[ "$expire_date" =~ ^[0-9]+$ ]] && [[ $expire_date -lt $current_days ]]; then
             is_expired=true
         fi
     fi
