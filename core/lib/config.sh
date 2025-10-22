@@ -1,203 +1,35 @@
 #!/bin/bash
 
-# BashAdminCore - Configuration Management Module
-# Provides centralized configuration loading and management
+# Minimal configuration loader
 
-# Global configuration variables
-declare -gA BASH_ADMIN_CONFIG
-declare -g CONFIG_DIR="${BASH_ADMIN_CONFIG_DIR:-/etc/bash-admin/config}"
-declare -g CONFIG_FILE="${CONFIG_DIR}/bash-admin.json"
-declare -g LOCAL_CONFIG_FILE="$HOME/.bash-admin/config.json"
+declare -gA BASH_ADMIN_CONFIG=()
+declare -g BASH_ADMIN_CONFIG_FILE=""
 
-# Load configuration from JSON file
-load_config() {
-    local config_file="$1"
-    
-    if [[ ! -f "$config_file" ]]; then
-        log_warn "Configuration file not found: $config_file" "CONFIG"
-        return 1
-    fi
-    
-    if ! command -v jq >/dev/null 2>&1; then
-        log_error "jq is required for configuration management but not installed" "CONFIG"
-        return 1
-    fi
-    
-    log_info "Loading configuration from: $config_file" "CONFIG"
-    
-    # Validate configuration against JSON schema before loading
-    if ! validate_config_schema "$config_file"; then
-        log_error "Configuration validation failed, not loading invalid configuration" "CONFIG"
-        return 1
-    fi
-    
-    # Reset configuration array
-    BASH_ADMIN_CONFIG=()
-    
-    # Use jq to validate and extract configuration with structured output
-    local config_data
-    if config_data=$(jq -c 'to_entries' "$config_file" 2>/dev/null); then
-        # Parse JSON with proper error handling and structured output
-        while IFS=$'\t' read -r key value; do
-            BASH_ADMIN_CONFIG["$key"]="$value"
-        done < <(echo "$config_data" | jq -r '.[] | [(.key), (.value|tostring)] | @tsv')
-    else
-        log_error "Failed to parse configuration file: $config_file" "CONFIG"
-        return 1
-    fi
-    
-    if [[ ${#BASH_ADMIN_CONFIG[@]} -eq 0 ]]; then
-        log_error "No configuration items loaded from $config_file" "CONFIG"
-        return 1
-    fi
-    
-    log_success "Loaded ${#BASH_ADMIN_CONFIG[@]} configuration items" "CONFIG"
-    return 0
-}
-
-# Initialize configuration
 init_config() {
-    # Try to load system config first
-    if [[ -f "$CONFIG_FILE" ]]; then
-        load_config "$CONFIG_FILE"
-    elif [[ -f "$LOCAL_CONFIG_FILE" ]]; then
-        load_config "$LOCAL_CONFIG_FILE"
-    else
-        log_warn "No configuration file found, using defaults" "CONFIG"
-        create_default_config
+    local candidate="${BASH_ADMIN_CONFIG_FILE:-${BASH_ADMIN_ROOT}/config/config.json}"
+
+    if [[ -f "${candidate}" ]]; then
+        if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found; skipping configuration file" >&2
+            return
+        fi
+
+        local entries
+        entries=$(jq -r 'to_entries | .[] | "\(.key)=\(.value|tostring)"' "${candidate}") || return
+
+        while IFS='=' read -r key value; do
+            BASH_ADMIN_CONFIG["${key}"]="${value}"
+        done <<< "${entries}"
     fi
 }
 
-# Create default configuration
-create_default_config() {
-    local default_config='{
-    "email.smtp_server": "localhost",
-    "email.smtp_port": "25",
-    "email.from_address": "bash-admin@'"$(hostname -d)"'",
-    "email.recipients.admin": "admin@'"$(hostname -d)"'",
-    "email.recipients.security": "security@'"$(hostname -d)"'",
-    "paths.log_dir": "/var/log/bash-admin",
-    "paths.report_dir": "/var/reports/bash-admin",
-    "paths.backup_dir": "/var/backups/bash-admin",
-    "notifications.enabled": "true",
-    "notifications.email_enabled": "true",
-    "backup.retention_days": "30",
-    "backup.compression": "gzip",
-    "monitoring.disk_threshold": "90",
-    "monitoring.memory_threshold": "85",
-    "monitoring.load_threshold": "5.0"
-}'
-    
-    # Ensure directory exists
-    local config_dir
-    if [[ -w "/etc" ]]; then
-        config_dir="/etc/bash-admin/config"
-    else
-        config_dir="$HOME/.bash-admin"
-    fi
-    
-    mkdir -p "$config_dir"
-    echo "$default_config" > "$config_dir/bash-admin.json"
-    
-    log_info "Created default configuration at: $config_dir/bash-admin.json" "CONFIG"
-    load_config "$config_dir/bash-admin.json"
-}
-
-# Get configuration value
 get_config() {
     local key="$1"
-    local default_value="$2"
-    
-    if [[ -n "${BASH_ADMIN_CONFIG[$key]:-}" ]]; then
-        echo "${BASH_ADMIN_CONFIG[$key]}"
-    elif [[ -n "$default_value" ]]; then
-        echo "$default_value"
+    local default_value="${2:-}"
+
+    if [[ -n "${BASH_ADMIN_CONFIG[${key}]:-}" ]]; then
+        echo "${BASH_ADMIN_CONFIG[${key}]}"
     else
-        log_warn "Configuration key '$key' not found and no default provided" "CONFIG"
-        return 1
+        echo "${default_value}"
     fi
-}
-
-# Set configuration value (runtime only)
-set_config() {
-    local key="$1"
-    local value="$2"
-    
-    BASH_ADMIN_CONFIG["$key"]="$value"
-    log_debug "Set configuration: $key=$value" "CONFIG"
-}
-
-# Check if configuration key exists
-has_config() {
-    local key="$1"
-    [[ -n "${BASH_ADMIN_CONFIG[$key]:-}" ]]
-}
-
-# List all configuration keys
-list_config() {
-    local filter="${1:-}"
-    
-    for key in "${!BASH_ADMIN_CONFIG[@]}"; do
-        if [[ -z "$filter" ]] || [[ "$key" == *"$filter"* ]]; then
-            echo "$key=${BASH_ADMIN_CONFIG[$key]}"
-        fi
-    done | sort
-}
-
-# Validate configuration against JSON schema
-validate_config_schema() {
-    local config_file="$1"
-    local schema_file="${BASH_ADMIN_CORE}/schemas/config_schema.json"
-    
-    if [[ ! -f "$schema_file" ]]; then
-        log_warn "JSON schema file not found: $schema_file" "CONFIG"
-        return 0  # Allow to proceed without schema validation
-    fi
-    
-    if ! command -v jq >/dev/null 2>&1; then
-        log_warn "jq not available, skipping JSON schema validation" "CONFIG"
-        return 0
-    fi
-    
-    if [[ ! -f "$config_file" ]]; then
-        log_warn "Configuration file not found: $config_file" "CONFIG"
-        return 1
-    fi
-    
-    log_info "Validating configuration against JSON schema" "CONFIG"
-    
-    # Validate using jq against schema - use return codes to determine success
-    if jq --argfile schema "$schema_file" '. as $in | $schema | . as $s | ($in | [$s] | .[0])' "$config_file" >/dev/null 2>&1; then
-        log_success "Configuration validation passed" "CONFIG"
-        return 0
-    else
-        log_error "Configuration validation failed" "CONFIG"
-        
-        # Provide detailed validation errors
-        local schema_errors
-        if schema_errors=$(jq --argfile schema "$schema_file" '[$schema * .] | select(length > 0)[0]' "$config_file"); then
-            log_error "Schema validation errors: $schema_errors" "CONFIG"
-        fi
-        
-        return 1
-    fi
-}
-
-# Validate required configuration
-require_config() {
-    local required_keys=("$@")
-    local missing_keys=()
-    
-    for key in "${required_keys[@]}"; do
-        if ! has_config "$key"; then
-            missing_keys+=("$key")
-        fi
-    done
-    
-    if [[ ${#missing_keys[@]} -gt 0 ]]; then
-        log_error "Missing required configuration keys: ${missing_keys[*]}" "CONFIG"
-        return 1
-    fi
-    
-    return 0
 }
